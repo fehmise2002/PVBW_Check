@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="utf-8">
+  <title>Installierte PV-Leistung in Baden-Württemberg</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css" />
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src='https://unpkg.com/@turf/turf@6/turf.min.js'></script> 
+  
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #fcfcfc;
+      font-family: 'Inter', Arial, sans-serif;
+      color: #222;
+    }
+
+    .wrapper {
+      max-width: 850px;
+      margin: 2.5em auto;
+    }
+
+    h1 {
+      font-size: 2.3rem;
+      font-weight: 700;
+      margin: 0 0 1.4em 0;
+      letter-spacing: -1px;
+    }
+
+    .card {
+      background: #fff;
+      border: 2px solid #dedede;
+      border-radius: 15px;
+      box-shadow: 0 1px 12px #0001;
+      padding: 2.3em 2em 1.3em 2em;
+      position: relative;
+    }
+
+    .flex-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 2.2em;
+    }
+
+    .sidebar {
+      flex: 0 0 220px;
+    }
+
+    .legend-title {
+      font-size: 1.07em;
+      margin-bottom: .2em;
+      margin-top: 1.5em;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .legend-bar-wrap {
+      display: flex;
+      align-items: center;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: .22em .7em .22em .25em;
+      border-radius: 5px;
+      width: fit-content;
+      margin-bottom: 3px;
+    }
+
+    .bar-legend {
+      width: 112px;
+      height: 18px;
+      background: linear-gradient(90deg, #fffde3 0%, #fff1a6 20%, #ffc97a 45%, #ff9141 75%, #e94b2b 100%);
+      border-radius: 3px;
+      border: 1px solid #eee;
+      display: inline-block;
+    }
+
+    .legend-labels-both {
+      display: flex;
+      justify-content: space-between;
+      width: 115px;
+      padding-left: 4px;
+      font-size: 1.01em;
+      color: #767676;
+      margin-bottom: 0.4em;
+    }
+
+    .legend-labels-both span {
+      font-weight: 500;
+      letter-spacing: .02em;
+      min-width: 38px;
+      text-align: left;
+    }
+
+    .legend-labels-both span:last-child {
+      text-align: right;
+    }
+
+    .filterlabel {
+      font-size: 0.99em;
+      font-weight: 600;
+      margin-bottom: 0.21em;
+      display: block;
+      letter-spacing: .01em;
+      margin-top: 0.5em;
+    }
+
+    .filterbar {
+      margin-bottom: 0.6em;
+      width: 98%;
+      border: 1.4px solid #cfcfcf;
+      background: #faf9f7;
+      display: block;
+      border-radius: 8px;
+      font-size: 1.09em;
+      padding: 0.25em 0.8em;
+      color: #111;
+    }
+
+    .map-container {
+      flex: 1;
+      position: relative;
+      min-width: 400px;
+      min-height: 563px;
+    }
+
+    #map {
+      width: 100%;
+      height: 610px;
+      border-radius: 10px;
+      border: 1px solid #ececec;
+      z-index: 1;
+    }
+
+    .infobox {
+      display: none;
+      position: absolute;
+      top: 32px;
+      right: 29px;
+      background: #fff;
+      border: 2px solid #232323;
+      border-radius: 8px;
+      box-shadow: 0 1px 8px #0002;
+      min-width: 175px;
+      max-width: 226px;
+      z-index: 999;
+      padding: 1em 1.2em 0.8em 1.1em;
+      pointer-events: none;
+      font-size: 1.05em;
+    }
+    
+    .infobox strong {
+      font-size: 1.13em;
+    }
+    
+    .btn-download {
+      display: block;
+      width: 98%;
+      background: #395777;
+      color: white;
+      padding: 0.4em 0.8em;
+      border-radius: 8px;
+      font-size: 1.09em;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      margin-top: 1.5em;
+      border: none;
+    }
+    
+    .analysis-separator {
+        border-top: 1px solid #ddd;
+        margin-top: 1.5em;
+        padding-top: 0.5em;
+        font-weight: 600;
+        font-size: 1.05em;
+        color: #395777;
+        display: flex; 
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-toggle {
+        display: block;
+        width: 98%;
+        background: #90a4ae; 
+        color: white;
+        padding: 0.4em 0.8em;
+        border-radius: 8px;
+        font-size: 1.09em;
+        font-weight: 600;
+        cursor: pointer;
+        text-align: center;
+        margin-top: 0.8em;
+        border: none;
+        position: relative;
+    }
+    
+    .btn-toggle.active {
+        background: #e94b2b; 
+    }
+
+    .btn-toggle-wrapper {
+      position: relative;
+      display: block;
+      width: 98%;
+      margin-top: 0.8em;
+    }
+
+    .info-icon-container {
+        position: absolute;
+        top: 7px;
+        right: 8px;
+        cursor: help;
+    }
+    
+    .info-tooltip {
+        visibility: hidden;
+        width: 280px;
+        background-color: #333;
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 12px;
+        position: absolute;
+        z-index: 1000;
+        bottom: 120%;
+        left: 50%;
+        margin-left: -140px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        line-height: 1.4;
+        font-size: 0.88em;
+        font-weight: 400;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    
+    .info-tooltip::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #333 transparent transparent transparent;
+    }
+    
+    .info-icon-container:hover .info-tooltip {
+        visibility: visible;
+        opacity: 1;
+    }
+
+    .info-icon {
+        width: 18px;
+        height: 18px;
+        background: #ccc;
+        color: white;
+        border-radius: 50%;
+        font-size: 14px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 2px #0005;
+    }
+
+    @media (max-width: 1200px) {
+      .wrapper {
+        max-width: 98vw;
+      }
+
+      .card {
+        padding: 1.3em 0.5em 1em 0.5em;
+      }
+
+      .flex-row {
+        flex-wrap: wrap;
+      }
+
+      .map-container {
+        min-width: 200px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <h1>Installierte PV-Leistung in<br>Baden-Württemberg</h1>
+    <div class="card">
+      <div class="flex-row">
+        <div class="sidebar">
+          <label class="filterlabel" for="plzDD">PLZ-Gebiet wählen</label>
+          <select class="filterbar" id="plzDD">
+            <option value="">Alle PLZ-Gebiete</option>
+          </select>
+          <label class="filterlabel" for="kwpDD">Leistungsklasse wählen</label>
+          <select class="filterbar" id="kwpDD">
+            <option value="">Alle Leistungsklassen</option>
+            <option value="lt10">&lt; 10 kWp</option>
+            <option value="10-30">10 – 30 kWp</option>
+            <option value="30-100">30 – 100 kWp</option>
+            <option value="100-750">100 – 750 kWp</option>
+            <option value="gt750">&gt; 750 kWp</option>
+          </select>
+          <div class="legend-title">Legende</div>
+          <div class="legend-bar-wrap">
+            <span class="bar-legend"></span>
+          </div>
+          <div class="legend-labels-both">
+            <span>niedrig</span>
+            <span>hoch</span>
+          </div>
+          
+          <div class="analysis-separator">
+            Räumliche Analyse
+            <div class="info-icon-container">
+              <span class="info-icon">i</span>
+              <div class="info-tooltip">
+                Der Leistungs-Schwerpunkt (gewichteter Zentroid) zeigt den geografischen Mittelpunkt der installierten PV-Leistung der aktuell gefilterten Gebiete an. Gebiete mit hoher Leistung ziehen den Schwerpunkt stärker an.
+              </div>
+            </div>
+          </div>
+          
+          <!-- Button mit integriertem Info-Icon -->
+          <div class="btn-toggle-wrapper">
+            <button class="btn-toggle" id="toggleCentroid">
+              Leistungs-Schwerpunkt anzeigen
+            </button>
+            <div class="info-icon-container">
+              <span class="info-icon">i</span>
+              <div class="info-tooltip">
+                Bedeutung der Lage des Leistungsschwerpunkts (bezogen auf die aktuell gewählten Filter):<br><br>
+                • <strong>Mitte der Karte:</strong> PV-Leistung verteilt sich ausgewogen über Baden-Württemberg<br>
+                • <strong>Rechts (Osten):</strong> Größere Leistungskonzentration im Osten (z.B. Stuttgart-Region)<br>
+                • <strong>Links (Westen):</strong> Schwerpunkt im Westen (z.B. Freiburg/Karlsruhe)<br>
+                • <strong>Süden:</strong> Hohe Leistung in Südbaden-Württemberg<br>
+                • <strong>Norden:</strong> Konzentration im nördlichen Teil
+              </div>
+            </div>
+          </div>
+          
+          <button class="btn-download" onclick="generatePDF()">Karte als PDF herunterladen</button>
+        </div>
+        <div class="map-container" style="position:relative;">
+          <div id="map"></div>
+          <div class="infobox" id="infobox"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { jsPDF } = window.jspdf;
+
+    function generatePDF() {
+        const mapElement = document.getElementById('map');
+        const attribution = document.querySelector('.leaflet-control-container');
+        if (attribution) attribution.style.display = 'none';
+
+        setTimeout(() => {
+                          html2canvas(mapElement, {
+                useCORS: true,
+                allowTaint: false,
+                ignoreElements: (element) => element.id === 'infobox'
+              }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('l', 'mm', 'a4');
+                const imgProps = pdf.getImageProperties(imgData);
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.save("PV-Leistung_BW_Karte.pdf");
+                
+                if (attribution) attribution.style.display = 'block';
+            });
+        }, 500); 
+    }
+
+
+    function fixMojibake(str) {
+        if (!str || typeof str !== "string") return str;
+        if (!/[ÃÂ]/.test(str)) return str;
+
+        try {
+          const bytes = Uint8Array.from(str, ch => ch.charCodeAt(0));
+          return new TextDecoder("utf-8").decode(bytes);
+        } catch {
+          return str;
+        }
+      }
+
+    
+    function bereinigePlz(plzString) {
+      if (!plzString) return "";
+      const plzMatch = plzString.toString().match(/\d{5}/);
+      return plzMatch ? plzMatch[0] : "";
+    }
+
+    function istBadenWuerttemberg(plz) {
+      if (!plz) return false;
+      plz = plz.toString();
+      if (plz.length !== 5) return false;
+
+      const n = parseInt(plz, 10);
+      const prefix = plz.substring(0, 2);
+
+      if (n >= 70000 && n <= 79999) return true;
+      if (prefix === '68' || prefix === '69') return true; 
+      if (prefix === '88' || prefix === '89') return true; 
+
+      if (plz.startsWith('86') || plz.startsWith('87') || plz.startsWith('85') || plz.startsWith('84')) return false;
+
+      return false;
+    }
+    
+    function bestimmeLeistungsklasse(value) {
+      if (value < 10) return "lt10";
+      if (value >= 10 && value < 30) return "10-30";
+      if (value >= 30 && value < 100) return "30-100";
+      if (value >= 100 && value < 750) return "100-750";
+      if (value >= 750) return "gt750";
+      return "";
+    }
+    
+    const farbSkala = d3.scaleLinear()
+      .domain([0, 0.5, 0.9, 1])
+      .range(["#fffde3", "#ffc97a", "#ff9141", "#e94b2b"]);
+
+    const karte = L.map('map', { zoomControl: false, attributionControl: false }).setView([48.5, 9], 7.4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        minZoom: 6,
+        maxZoom: 15,
+        crossOrigin: true
+      }).addTo(karte);
+
+
+    const csvAdressen = [
+      'Stromerzeuger_1_bis_25000.csv',
+      'Stromerzeuger_25001_bis_50000.csv',
+      'Stromerzeuger_50001_bis_75000.csv',
+      'Stromerzeuger_75001_bis_100000.csv',
+      'Stromerzeuger_100001_bis_125000.csv',
+      'Stromerzeuger_125001_bis_150000.csv',
+      'Stromerzeuger_150001_bis_175000.csv',
+      'Stromerzeuger_175001_bis_200000.csv',
+      'Stromerzeuger_225001_bis_250000.csv',
+      'Stromerzeuger_250001_bis_275000.csv',
+      'Stromerzeuger_275001_bis_300000.csv',
+      'Stromerzeuger_300001_bis_325000.csv',
+      'Stromerzeuger_325001_bis_350000.csv',
+      'Stromerzeuger_350001_bis_375000.csv',
+      'Stromerzeuger_375001_bis_400000.csv',
+      'Stromerzeuger_400001_bis_425000.csv',
+      'Stromerzeuger_425001_bis_450000.csv',
+    ];
+
+    const geoJsonAdresse = 'plz_gebiete.geojson';
+
+    let originalGeoDatendaten, leistungNachPlz = {}, plzZuOrtName = {}, alleBWPlz = [];
+    let plzEbene = null;
+    let centroidMarker = null; 
+    let isCentroidVisible = false; 
+
+    function berechneGewichtetenZentroid(gefiltereElementen) {
+      if (gefiltereElementen.length === 0) return null;
+
+      let sumWeight = 0;
+      let sumWeightedLat = 0;
+      let sumWeightedLng = 0;
+      
+      if (typeof turf === 'undefined' || !turf.centroid) {
+          console.error("Turf.js nicht verfügbar, Zentroid-Berechnung abgebrochen.");
+          return null; 
+      }
+
+      gefiltereElementen.forEach(feature => {
+        const plz = bereinigePlz(feature.properties.plz || feature.properties.PLZ || "");
+        const weight = leistungNachPlz[plz] || 0; 
+        
+        if (weight > 0) {
+            const centroidFeature = turf.centroid(feature);
+            const lng = centroidFeature.geometry.coordinates[0];
+            const lat = centroidFeature.geometry.coordinates[1];
+
+            sumWeight += weight;
+            sumWeightedLat += lat * weight;
+            sumWeightedLng += lng * weight;
+        }
+      });
+
+      if (sumWeight > 0) {
+        const centroidLat = sumWeightedLat / sumWeight;
+        const centroidLng = sumWeightedLng / sumWeight;
+        return [centroidLat, centroidLng];
+      }
+      return null;
+    }
+
+    function karteNeuZeichnen() {
+      const elementeBW = originalGeoDatendaten.features;
+
+      let gefiltereElementen = elementeBW.filter(f => {
+        const plz = bereinigePlz(f.properties.plz || f.properties.PLZ || "");
+        const leistung = leistungNachPlz[plz] || 0;
+        const gewaehltePlz = document.getElementById("plzDD").value;
+        if (gewaehltePlz && plz !== gewaehltePlz) return false;
+        const geewahlteKwp = document.getElementById("kwpDD").value;
+        if (geewahlteKwp && bestimmeLeistungsklasse(leistung) !== geewahlteKwp) return false;
+        return true;
+      });
+
+      const werte = gefiltereElementen.map(f => {
+        const plz = bereinigePlz(f.properties.plz || f.properties.PLZ || "");
+        return leistungNachPlz[plz] || 0;
+      });
+      const minWert = d3.min(werte);
+      const maxWert = d3.max(werte);
+
+      function gebeHexFarbe(leistung) {
+        if (werte.length === 0 || minWert === undefined || maxWert === undefined) return "#bbb";
+        if (maxWert === minWert) return farbSkala(1);
+        const verhaeltnis = (leistung - minWert) / (maxWert - minWert);
+        return farbSkala(verhaeltnis);
+      }
+
+      function stil(element) {
+        const plz = bereinigePlz(element.properties.plz || element.properties.PLZ || "");
+        const leistung = leistungNachPlz[plz] || 0;
+        if (gefiltereElementen.find(f => bereinigePlz(f.properties.plz || f.properties.PLZ || "") === plz)) {
+          return {
+            fillColor: gebeHexFarbe(leistung),
+            weight: 1.1,
+            opacity: 1,
+            color: '#fff',
+            dashArray: '2',
+            fillOpacity: 0.84
+          };
+        } else {
+          return {
+            fillColor: "#eaeaea",
+            weight: 1,
+            color: "#dddddd",
+            dashArray: '2',
+            fillOpacity: 0.35
+          };
+        }
+      }
+
+      function hervorheben(ereignis) {
+        var ebene = ereignis.target;
+        ebene.setStyle({ weight: 3.3, color: '#333', fillOpacity: 0.97 });
+        ebene.bringToFront();
+        const plz = bereinigePlz(ebene.feature.properties.plz || ebene.feature.properties.PLZ || "");
+        const leistung = leistungNachPlz[plz] || 0;
+        const ortName = plzZuOrtName[plz] || "";
+        const infokasten = document.getElementById("infobox");
+        
+        let anzuzeigenderOrtName = '';
+        if (ortName && ortName !== plz) {
+            if (ortName.startsWith(plz)) {
+                anzuzeigenderOrtName = ortName.substring(plz.length).trim();
+            } else {
+                anzuzeigenderOrtName = ortName;
+            }
+        }
+        const ortsZusatz = anzuzeigenderOrtName ? ' ' + anzuzeigenderOrtName : '';
+        infokasten.style.display = "block";
+        infokasten.innerHTML = `
+          <strong>PLZ: ${plz}${ortsZusatz}</strong><br>
+          Installierte Leistung: <b>${leistung.toLocaleString('de-DE', { maximumFractionDigits: 2 })} kWp</b>
+        `;
+      }
+
+      function hervorhebungZuruecksetzen(e) {
+        plzEbene && plzEbene.resetStyle(e.target);
+        document.getElementById("infobox").style.display = "none";
+      }
+
+      function fuerJedesElement(element, ebene) {
+        ebene.on({ mouseover: hervorheben, mouseout: hervorhebungZuruecksetzen });
+      }
+      
+      if (plzEbene) {
+        karte.removeLayer(plzEbene);
+      }
+      
+      plzEbene = L.geoJson(originalGeoDatendaten, {
+        style: stil,
+        onEachFeature: fuerJedesElement
+      }).addTo(karte);
+      document.getElementById("infobox").style.display = "none";
+          
+      // Zentroid-Logik
+      if (isCentroidVisible) {
+        if (centroidMarker) {
+             karte.removeLayer(centroidMarker);
+             centroidMarker = null;
+        }
+          
+        const centroidCoords = berechneGewichtetenZentroid(gefiltereElementen);
+
+        if (centroidCoords) {
+            const totalPower = werte.reduce((sum, value) => sum + value, 0);
+            const popupContent = `
+                <b>Leistungs-Schwerpunkt</b><br>
+                Gesamtleistung: ${totalPower.toLocaleString('de-DE', { maximumFractionDigits: 0 })} kWp
+            `;
+            
+            const customIcon = L.divIcon({
+                className: 'centroid-icon',
+                html: '<div style="background-color:#E94B2B; width: 15px; height: 15px; border-radius: 50%; border: 3px solid #FFF; box-shadow: 0 0 5px #E94B2B;"></div>',
+                iconSize: [21, 21],
+                iconAnchor: [10, 10]
+            });
+            
+            centroidMarker = L.marker([centroidCoords[0], centroidCoords[1]], {
+                icon: customIcon
+            }).addTo(karte)
+              .bindPopup(popupContent)
+              .openPopup();
+        }
+      } else {
+        if (centroidMarker) {
+            karte.removeLayer(centroidMarker);
+            centroidMarker = null;
+        }
+      }
+    }
+
+    function toggleCentroidLayer() {
+        isCentroidVisible = !isCentroidVisible;
+        const button = document.getElementById("toggleCentroid");
+
+        if (isCentroidVisible) {
+            button.classList.add("active");
+            button.textContent = "Leistungs-Schwerpunkt ausblenden";
+        } else {
+            button.classList.remove("active");
+            button.textContent = "Leistungs-Schwerpunkt anzeigen";
+
+            if (centroidMarker) {
+                karte.removeLayer(centroidMarker);
+                centroidMarker = null;
+            }
+        }
+        karteNeuZeichnen(); 
+    }
+
+    window.toggleCentroidLayer = toggleCentroidLayer;
+
+    const csvAbrufVersprechungen = csvAdressen.map(adresse =>
+      fetch(adresse).then(antwort => {
+        if (!antwort.ok) return null;
+        return antwort.arrayBuffer().then(buffer => {
+            const decoder = new TextDecoder('utf-8');
+            const text = decoder.decode(buffer);
+            return d3.dsvFormat(";").parse(text);
+        });
+      }).catch(() => null)
+    );
+
+    Promise.all([Promise.all(csvAbrufVersprechungen), d3.json(geoJsonAdresse)])
+      .then(([csvErgebnisse, geoDatendaten]) => {
+        const csvDatendaten = csvErgebnisse.filter(Boolean).flat();
+        
+        csvDatendaten.forEach(zeile => {
+          const plz = zeile['Postleitzahl'];
+          if (!plz) return;
+
+          const rohWert = (zeile['Bruttoleistung der Einheit'] || "0").toString();
+          const normalisiert = rohWert.replace(/\./g, '').replace(',', '.');
+          const leistung = Number(normalisiert) || 0;
+          if (!leistungNachPlz[plz]) leistungNachPlz[plz] = 0;
+          leistungNachPlz[plz] += leistung;
+        });
+        
+        const elementeBW = geoDatendaten.features.filter(f => {
+          const plz = bereinigePlz(f.properties.plz || f.properties.PLZ || "");
+          return istBadenWuerttemberg(plz);
+        });
+        originalGeoDatendaten = { type: "FeatureCollection", features: elementeBW };
+
+        alleBWPlz = [];
+        plzZuOrtName = {};
+        elementeBW.forEach(f => {
+          const plz = bereinigePlz(f.properties.plz || f.properties.PLZ || "");
+          const ortName = fixMojibake(f.properties.note || "");
+          if (plz && istBadenWuerttemberg(plz) && !plzZuOrtName[plz]) {
+            plzZuOrtName[plz] = ortName;
+            alleBWPlz.push(plz);
+          }
+        });
+        alleBWPlz.sort((a, b) => a.localeCompare(b, "de", { numeric: true }));
+        const plzAuswahlfeld = document.getElementById("plzDD");
+        plzAuswahlfeld.innerHTML = '<option value="">Alle PLZ-Gebiete</option>'; 
+        alleBWPlz.forEach(plz => {
+          const option = document.createElement("option");
+          option.value = plz;
+          const ortName = plzZuOrtName[plz] || "";
+          option.textContent = fixMojibake(ortName) || plz;
+          plzAuswahlfeld.appendChild(option);
+        });
+
+        karteNeuZeichnen();
+        document.getElementById("plzDD").addEventListener("change", karteNeuZeichnen);
+        document.getElementById("kwpDD").addEventListener("change", karteNeuZeichnen);
+
+        document.getElementById("toggleCentroid").addEventListener("click", toggleCentroidLayer);
+      });
+  </script>
+</body>
+
+</html>
