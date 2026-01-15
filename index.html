@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <title>Installierte PV-Leistung in Baden-Württemberg</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css" />
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -15,282 +15,368 @@
   <script src='https://unpkg.com/@turf/turf@6/turf.min.js'></script> 
   
   <style>
-    html,
-    body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      background: #fcfcfc;
-      font-family: 'Inter', Arial, sans-serif;
-      color: #222;
-    }
+    :root{
+  --bg:#f6f7fb;
+  --panel:#ffffff;
+  --text:#0f172a;
+  --muted:#64748b;
+  --border:#e5e7eb;
+  --shadow:0 18px 40px rgba(2,6,23,.08);
+  --shadow-soft:0 10px 24px rgba(2,6,23,.07);
+  --r:18px;
+  --r2:14px;
+  --accent:#395777;
+  --accent2:#e94b2b;
+}
 
-    .wrapper {
-      max-width: 850px;
-      margin: 2.5em auto;
-    }
+*, *::before, *::after { box-sizing: border-box; }
 
-    h1 {
-      font-size: 2.3rem;
-      font-weight: 700;
-      margin: 0 0 1.4em 0;
-      letter-spacing: -1px;
-    }
+html, body{
+  height:100%;
+  margin:0;
+  padding:0;
+}
 
-    .card {
-      background: #fff;
-      border: 2px solid #dedede;
-      border-radius: 15px;
-      box-shadow: 0 1px 12px #0001;
-      padding: 2.3em 2em 1.3em 2em;
-      position: relative;
-    }
+body{
+  font-family: 'Inter', Arial, sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(1100px 500px at 15% -10%, #eef2ff 0%, transparent 55%),
+    radial-gradient(900px 480px at 90% 10%, #ecfeff 0%, transparent 55%),
+    var(--bg);
+}
 
-    .flex-row {
-      display: flex;
-      align-items: flex-start;
-      gap: 2.2em;
-    }
+.wrapper{
+  max-width: 1100px;
+  margin: 34px auto;
+  padding: 0 18px;
+}
 
-    .sidebar {
-      flex: 0 0 220px;
-    }
+h1{
+  text-align:center;
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0 0 18px 0;
+}
 
-    .legend-title {
-      font-size: 1.07em;
-      margin-bottom: .2em;
-      margin-top: 1.5em;
-      font-weight: 600;
-      letter-spacing: 0;
-    }
+.card{
+  background: rgba(255,255,255,.72);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  backdrop-filter: blur(6px);
+}
 
-    .legend-bar-wrap {
-      display: flex;
-      align-items: center;
-      background: #fff;
-      border: 1px solid #ccc;
-      padding: .22em .7em .22em .25em;
-      border-radius: 5px;
-      width: fit-content;
-      margin-bottom: 3px;
-    }
+.flex-row{
+  display:flex;
+  gap: 18px;
+  align-items: stretch;
+}
 
-    .bar-legend {
-      width: 112px;
-      height: 18px;
-      background: linear-gradient(90deg, #fffde3 0%, #fff1a6 20%, #ffc97a 45%, #ff9141 75%, #e94b2b 100%);
-      border-radius: 3px;
-      border: 1px solid #eee;
-      display: inline-block;
-    }
+.sidebar{
+  flex: 0 0 320px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  box-shadow: var(--shadow-soft);
+  padding: 16px;
+  display:flex;
+  flex-direction:column;
+  gap: 12px;
+  overflow:hidden; 
+}
 
-    .legend-labels-both {
-      display: flex;
-      justify-content: space-between;
-      width: 115px;
-      padding-left: 4px;
-      font-size: 1.01em;
-      color: #767676;
-      margin-bottom: 0.4em;
-    }
+@media (min-width: 980px){
+  .sidebar{
+    position: sticky;
+    top: 16px;
+    height: fit-content;
+  }
+}
 
-    .legend-labels-both span {
-      font-weight: 500;
-      letter-spacing: .02em;
-      min-width: 38px;
-      text-align: left;
-    }
+.filterlabel{
+  font-size: .9rem;
+  font-weight: 850;
+  color: var(--muted);
+  margin: 0 0 6px 0;
+}
 
-    .legend-labels-both span:last-child {
-      text-align: right;
-    }
+.filterbar{
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: .98rem;
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 1px 0 rgba(2,6,23,.03);
+}
 
-    .filterlabel {
-      font-size: 0.99em;
-      font-weight: 600;
-      margin-bottom: 0.21em;
-      display: block;
-      letter-spacing: .01em;
-      margin-top: 0.5em;
-    }
+.filterbar:focus{
+  outline: none;
+  border-color: rgba(57,87,119,.55);
+  box-shadow: 0 0 0 4px rgba(57,87,119,.14);
+}
 
-    .filterbar {
-      margin-bottom: 0.6em;
-      width: 98%;
-      border: 1.4px solid #cfcfcf;
-      background: #faf9f7;
-      display: block;
-      border-radius: 8px;
-      font-size: 1.09em;
-      padding: 0.25em 0.8em;
-      color: #111;
-    }
+.btn-reset,
+.btn-toggle,
+.btn-download{
+  width: 100%;
+  max-width: 100%;
+  padding: 11px 12px;
+  border-radius: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 10px 22px rgba(2,6,23,.10);
+}
 
-    .map-container {
-      flex: 1;
-      position: relative;
-      min-width: 400px;
-      min-height: 563px;
-    }
+.btn-reset{
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: var(--accent);
+  border: 1px solid rgba(57,87,119,.25);
+  box-shadow: 0 6px 16px rgba(2,6,23,.06);
+}
 
-    #map {
-      width: 100%;
-      height: 610px;
-      border-radius: 10px;
-      border: 1px solid #ececec;
-      z-index: 1;
-    }
+.btn-toggle{
+  background: linear-gradient(180deg, #93a6b1 0%, #7e96a5 100%);
+  color: #fff;
+}
 
-    .infobox {
-      display: none;
-      position: absolute;
-      top: 32px;
-      right: 29px;
-      background: #fff;
-      border: 2px solid #232323;
-      border-radius: 8px;
-      box-shadow: 0 1px 8px #0002;
-      min-width: 175px;
-      max-width: 226px;
-      z-index: 999;
-      padding: 1em 1.2em 0.8em 1.1em;
-      pointer-events: none;
-      font-size: 1.05em;
-    }
-    
-    .infobox strong {
-      font-size: 1.13em;
-    }
-    
-    .btn-download {
-      display: block;
-      width: 98%;
-      background: #395777;
-      color: white;
-      padding: 0.4em 0.8em;
-      border-radius: 8px;
-      font-size: 1.09em;
-      font-weight: 600;
-      cursor: pointer;
-      text-align: center;
-      margin-top: 1.5em;
-      border: none;
-    }
-    
-    .analysis-separator {
-        border-top: 1px solid #ddd;
-        margin-top: 1.5em;
-        padding-top: 0.5em;
-        font-weight: 600;
-        font-size: 1.05em;
-        color: #395777;
-        display: flex; 
-        align-items: center;
-        gap: 8px;
-    }
+.btn-toggle.active{
+  background: linear-gradient(180deg, var(--accent2) 0%, #c63f26 100%);
+}
 
-    .btn-toggle {
-        display: block;
-        width: 98%;
-        background: #90a4ae; 
-        color: white;
-        padding: 0.4em 0.8em;
-        border-radius: 8px;
-        font-size: 1.09em;
-        font-weight: 600;
-        cursor: pointer;
-        text-align: center;
-        margin-top: 0.8em;
-        border: none;
-        position: relative;
-    }
-    
-    .btn-toggle.active {
-        background: #e94b2b; 
-    }
+.btn-download{
+  background: linear-gradient(180deg, var(--accent) 0%, #2e4a68 100%);
+  color:#fff;
+}
 
-    .btn-toggle-wrapper {
-      position: relative;
-      display: block;
-      width: 98%;
-      margin-top: 0.8em;
-    }
+.btn-reset:hover,
+.btn-toggle:hover,
+.btn-download:hover{ filter: brightness(1.02); }
 
-    .info-icon-container {
-        position: absolute;
-        top: 7px;
-        right: 8px;
-        cursor: help;
-    }
-    
-    .info-tooltip {
-        visibility: hidden;
-        width: 280px;
-        background-color: #333;
-        color: #fff;
-        text-align: left;
-        border-radius: 6px;
-        padding: 12px;
-        position: absolute;
-        z-index: 1000;
-        bottom: 120%;
-        left: 50%;
-        margin-left: -140px;
-        opacity: 0;
-        transition: opacity 0.3s;
-        line-height: 1.4;
-        font-size: 0.88em;
-        font-weight: 400;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-    
-    .info-tooltip::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        margin-left: -5px;
-        border-width: 5px;
-        border-style: solid;
-        border-color: #333 transparent transparent transparent;
-    }
-    
-    .info-icon-container:hover .info-tooltip {
-        visibility: visible;
-        opacity: 1;
-    }
+.btn-reset:active,
+.btn-toggle:active,
+.btn-download:active{ transform: translateY(1px); }
 
-    .info-icon {
-        width: 18px;
-        height: 18px;
-        background: #ccc;
-        color: white;
-        border-radius: 50%;
-        font-size: 14px;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 0 2px #0005;
-    }
+.legend-title{
+  font-size: .92rem;
+  font-weight: 900;
+  color: var(--muted);
+  margin-top: 2px;
+}
 
-    @media (max-width: 1200px) {
-      .wrapper {
-        max-width: 98vw;
-      }
+.legend-bar-wrap{
+  width: 100%;
+  max-width: 100%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 4px 14px rgba(2,6,23,.05);
+}
 
-      .card {
-        padding: 1.3em 0.5em 1em 0.5em;
-      }
+.bar-legend{
+  width: min(220px, 100%);
+  max-width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(2,6,23,.06);
+  background: linear-gradient(90deg, #fffde3 0%, #fff1a6 20%, #ffc97a 45%, #ff9141 75%, #e94b2b 100%);
+}
 
-      .flex-row {
-        flex-wrap: wrap;
-      }
+.legend-labels-both{
+  width: 100%;
+  display:flex;
+  justify-content:space-between;
+  font-size: .88rem;
+  color: var(--muted);
+  margin: 2px 0 0 0;
+}
 
-      .map-container {
-        min-width: 200px;
-      }
-    }
+.legend-labels-both span{
+  font-weight: 800;
+}
+
+.stats-card{
+  width: 100%;
+  max-width: 100%;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 12px;
+  box-shadow: 0 8px 20px rgba(2,6,23,.06);
+}
+
+.stats-title{
+  font-size: .95rem;
+  font-weight: 950;
+  margin: 0 0 10px 0;
+  color: var(--text);
+}
+
+.stats-row{
+  display:flex;
+  justify-content:space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px dashed #e8edf5;
+  font-size: .92rem;
+  align-items:flex-start;
+}
+
+.stats-row:first-of-type{ border-top: none; }
+
+.stats-row span{
+  color: var(--muted);
+  font-weight: 850;
+  min-width: 120px;
+}
+
+.stats-row b{
+  color: var(--text);
+  font-weight: 950;
+  text-align:right;
+  max-width: 58%;
+  overflow-wrap:anywhere;
+  word-break: break-word;
+}
+
+#statTop{
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.analysis-separator,
+.btn-toggle-wrapper{
+  position: relative;
+}
+
+.analysis-separator .info-icon-container{
+  position: relative;
+  top: auto;
+  right: auto;
+  margin-left: auto;     
+}
+
+.btn-toggle-wrapper .info-icon-container{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.info-icon{
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size: 13px;
+  font-weight: 900;
+  background: #eef2f7;
+  color: #0f172a;
+  border: 1px solid rgba(2,6,23,.08);
+  box-shadow: 0 6px 16px rgba(2,6,23,.12);
+}
+
+.info-tooltip{
+  visibility:hidden;
+  opacity:0;
+
+  width: min(320px, calc(100vw - 60px));
+  max-width: 100%;
+
+  background:#111827;
+  color:#fff;
+  text-align:left;
+  border-radius: 14px;
+  padding: 12px;
+
+  position:absolute;
+  z-index: 4000;
+
+  right: 0;
+  left: auto;
+  transform: none;
+
+  bottom: 140%;
+  transition: opacity .2s ease;
+
+  line-height: 1.4;
+  font-size: .88rem;
+  font-weight: 450;
+
+  max-height: 240px;     
+  overflow: auto;
+  box-shadow: 0 18px 46px rgba(0,0,0,.22);
+}
+
+.info-tooltip::after{
+  content:"";
+  position:absolute;
+  top: 100%;
+  right: 14px;
+  border-width: 6px;
+  border-style: solid;
+  border-color: #111827 transparent transparent transparent;
+}
+
+.info-icon-container:hover .info-tooltip{
+  visibility: visible;
+  opacity: 1;
+}
+
+.map-container{
+  flex: 1;
+  min-width: 520px;
+  position: relative;
+}
+
+#map{
+  width: 100%;
+  height: 720px;
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  overflow:hidden;
+}
+
+.leaflet-container{
+  border-radius: var(--r);
+}
+
+.infobox{
+  z-index: 5000;          
+  display:none;
+  position:absolute;
+  top: 16px;
+  right: 16px;
+  background:#fff;
+  border-radius: 14px;
+  border: 1px solid rgba(2,6,23,.10);
+  box-shadow: 0 18px 40px rgba(2,6,23,.18);
+  padding: 12px 14px;
+  pointer-events:none;
+  font-size: .95rem;
+  max-width: 260px;
+}
+
+.infobox strong{ font-size: 1.02rem; }
+
+@media (max-width: 980px){
+  .flex-row{ flex-direction: column; }
+  .sidebar{ flex: 1 1 auto; }
+  .map-container{ min-width: 0; }
+  #map{ height: 520px; }
+}
   </style>
 </head>
 
@@ -307,21 +393,45 @@
           <label class="filterlabel" for="kwpDD">Leistungsklasse wählen</label>
           <select class="filterbar" id="kwpDD">
             <option value="">Alle Leistungsklassen</option>
-            <option value="lt10">&lt; 10 kWp</option>
-            <option value="10-30">10 – 30 kWp</option>
-            <option value="30-100">30 – 100 kWp</option>
-            <option value="100-750">100 – 750 kWp</option>
-            <option value="gt750">&gt; 750 kWp</option>
+            <option value="q1">Sehr niedrig (20%)</option>
+            <option value="q2">Niedrig (20–40%)</option>
+            <option value="q3">Mittel (40–60%)</option>
+            <option value="q4">Hoch (60–80%)</option>
+            <option value="q5">Sehr hoch (Top 20%)</option>
+
           </select>
+          <button class="btn-reset" id="resetBtn" type="button">Filter zurücksetzen</button>
           <div class="legend-title">Legende</div>
           <div class="legend-bar-wrap">
             <span class="bar-legend"></span>
           </div>
           <div class="legend-labels-both">
-            <span>niedrig</span>
-            <span>hoch</span>
+            <span id="legendMin">niedrig</span>
+            <span id="legendMax">hoch</span>
           </div>
-          
+          <div class="stats-card" id="statsCard">
+  <div class="stats-title">Auswahl-Statistik</div>
+
+  <div class="stats-row">
+    <span>PLZ-Gebiete</span>
+    <b id="statCount">–</b>
+  </div>
+
+  <div class="stats-row">
+    <span>Gesamtleistung</span>
+    <b id="statTotal">–</b>
+  </div>
+
+  <div class="stats-row">
+    <span>Ø Leistung / PLZ</span>
+    <b id="statAvg">–</b>
+  </div>
+
+  <div class="stats-row">
+    <span>Top-PLZ</span>
+    <b id="statTop">–</b>
+  </div>
+</div>         
           <div class="analysis-separator">
             Räumliche Analyse
             <div class="info-icon-container">
@@ -332,7 +442,6 @@
             </div>
           </div>
           
-          <!-- Button mit integriertem Info-Icon -->
           <div class="btn-toggle-wrapper">
             <button class="btn-toggle" id="toggleCentroid">
               Leistungs-Schwerpunkt anzeigen
@@ -424,20 +533,39 @@
 
       return false;
     }
-    
-    function bestimmeLeistungsklasse(value) {
-      if (value < 10) return "lt10";
-      if (value >= 10 && value < 30) return "10-30";
-      if (value >= 30 && value < 100) return "30-100";
-      if (value >= 100 && value < 750) return "100-750";
-      if (value >= 750) return "gt750";
-      return "";
-    }
-    
-    const farbSkala = d3.scaleLinear()
-      .domain([0, 0.5, 0.9, 1])
-      .range(["#fffde3", "#ffc97a", "#ff9141", "#e94b2b"]);
 
+    function berechneQuantilGrenzen() { 
+  
+  const werte = alleBWPlz
+    .map(plz => leistungNachPlz[plz] || 0)
+    .filter(v => v > 0)
+    .sort((a, b) => a - b);
+
+  if (werte.length < 5) {
+    quantilGrenzen = null;
+    return;
+  }
+
+  const q = (p) => d3.quantile(werte, p);
+  quantilGrenzen = [q(0.2), q(0.4), q(0.6), q(0.8)];
+}
+
+function quantilKlasse(value) {
+  if (!quantilGrenzen) return "";
+  const [q20, q40, q60, q80] = quantilGrenzen;
+
+  if (value <= 0) return "";  
+  if (value <= q20) return "q1";
+  if (value <= q40) return "q2";
+  if (value <= q60) return "q3";
+  if (value <= q80) return "q4";
+  return "q5";
+}
+    
+        const farbSkala = d3.scaleLinear()
+          .domain([0, 0.3, 0.6, 1])
+          .range(["#fff7bc", "#fec44f", "#fe9929", "#cc4c02"]);
+          
     const karte = L.map('map', { zoomControl: false, attributionControl: false }).setView([48.5, 9], 7.4);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         minZoom: 6,
@@ -455,6 +583,7 @@
       'Stromerzeuger_125001_bis_150000.csv',
       'Stromerzeuger_150001_bis_175000.csv',
       'Stromerzeuger_175001_bis_200000.csv',
+      'Stromerzeuger_200001_bis_225000.csv',
       'Stromerzeuger_225001_bis_250000.csv',
       'Stromerzeuger_250001_bis_275000.csv',
       'Stromerzeuger_275001_bis_300000.csv',
@@ -492,6 +621,9 @@
     let plzEbene = null;
     let centroidMarker = null; 
     let isCentroidVisible = false; 
+
+    let quantilGrenzen = null; 
+
 
     function berechneGewichtetenZentroid(gefiltereElementen) {
       if (gefiltereElementen.length === 0) return null;
@@ -531,15 +663,18 @@
     function karteNeuZeichnen() {
       const elementeBW = originalGeoDatendaten.features;
 
-      let gefiltereElementen = elementeBW.filter(f => {
-        const plz = bereinigePlz(f.properties.plz || f.properties.PLZ || "");
-        const leistung = leistungNachPlz[plz] || 0;
-        const gewaehltePlz = document.getElementById("plzDD").value;
-        if (gewaehltePlz && plz !== gewaehltePlz) return false;
-        const geewahlteKwp = document.getElementById("kwpDD").value;
-        if (geewahlteKwp && bestimmeLeistungsklasse(leistung) !== geewahlteKwp) return false;
-        return true;
-      });
+     let gefiltereElementen = elementeBW.filter(f => {
+  const plz = bereinigePlz(f.properties.plz || f.properties.PLZ || "");
+  const leistung = leistungNachPlz[plz] || 0;
+
+  const gewaehltePlz = document.getElementById("plzDD").value;
+  if (gewaehltePlz && plz !== gewaehltePlz) return false;
+
+  const geewahlteKwp = document.getElementById("kwpDD").value;
+  if (geewahlteKwp && quantilKlasse(leistung) !== geewahlteKwp) return false;
+
+  return true;
+});
 
       const werte = gefiltereElementen.map(f => {
         const plz = bereinigePlz(f.properties.plz || f.properties.PLZ || "");
@@ -547,6 +682,10 @@
       });
       const minWert = d3.min(werte);
       const maxWert = d3.max(werte);
+
+      updateLegend(minWert, maxWert);
+      updateStats(gefiltereElementen, werte);
+
 
       function gebeHexFarbe(leistung) {
         if (werte.length === 0 || minWert === undefined || maxWert === undefined) return "#bbb";
@@ -622,7 +761,6 @@
       }).addTo(karte);
       document.getElementById("infobox").style.display = "none";
           
-      // Zentroid-Logik
       if (isCentroidVisible) {
         if (centroidMarker) {
              karte.removeLayer(centroidMarker);
@@ -690,6 +828,105 @@
         });
       }).catch(() => null)
     );
+      function resetFilters() {
+  document.getElementById("plzDD").value = "";
+  document.getElementById("kwpDD").value = "";
+
+  isCentroidVisible = false;
+  const btn = document.getElementById("toggleCentroid");
+  if (btn) {
+    btn.classList.remove("active");
+    btn.textContent = "Leistungs-Schwerpunkt anzeigen";
+  }
+
+  if (centroidMarker) {
+    karte.removeLayer(centroidMarker);
+    centroidMarker = null;
+  }
+
+  karteNeuZeichnen();
+}
+function formatKwp(val) {
+  if (val == null || !isFinite(val)) return "–";
+  return `${val.toLocaleString("de-DE", { maximumFractionDigits: 0 })} kWp`;
+}
+
+function updateLegend(minWert, maxWert) {
+  const minEl = document.getElementById("legendMin");
+  const maxEl = document.getElementById("legendMax");
+  if (!minEl || !maxEl) return;
+
+  if (minWert == null || maxWert == null || !isFinite(minWert) || !isFinite(maxWert)) {
+    minEl.textContent = "–";
+    maxEl.textContent = "–";
+    return;
+  }
+
+  if (minWert === maxWert) {
+    minEl.textContent = formatKwp(minWert);
+    maxEl.textContent = formatKwp(maxWert);
+    return;
+  }
+
+  minEl.textContent = formatKwp(minWert);
+  maxEl.textContent = formatKwp(maxWert);
+}
+function updateKwpDropdownLabels() {
+  if (!quantilGrenzen) return;
+  const [q20, q40, q60, q80] = quantilGrenzen;
+
+  const fmt = (v) => v.toLocaleString("de-DE", { maximumFractionDigits: 0 });
+
+  const dd = document.getElementById("kwpDD");
+  if (!dd) return;
+
+  const map = {
+    q1: `Sehr niedrig (≤ ${fmt(q20)} kWp)`,
+    q2: `Niedrig (≤ ${fmt(q40)} kWp)`,
+    q3: `Mittel (≤ ${fmt(q60)} kWp)`,
+    q4: `Hoch (≤ ${fmt(q80)} kWp)`,
+    q5: `Sehr hoch (> ${fmt(q80)} kWp)`
+  };
+
+  Array.from(dd.options).forEach(opt => {
+    if (map[opt.value]) opt.textContent = map[opt.value];
+  });
+}
+function updateStats(gefiltereElementen, werte) {
+  const countEl = document.getElementById("statCount");
+  const totalEl = document.getElementById("statTotal");
+  const avgEl = document.getElementById("statAvg");
+  const topEl = document.getElementById("statTop");
+
+  if (!countEl || !totalEl || !avgEl || !topEl) return;
+
+  const count = gefiltereElementen.length;
+
+  const total = werte.reduce((sum, v) => sum + (Number(v) || 0), 0);
+  const avg = count > 0 ? total / count : 0;
+
+  let topPlz = "–";
+  let topVal = -Infinity;
+
+  gefiltereElementen.forEach(f => {
+    const plz = bereinigePlz(f.properties.plz || f.properties.PLZ || "");
+    const val = leistungNachPlz[plz] || 0;
+    if (val > topVal) {
+      topVal = val;
+      topPlz = plz;
+    }
+  });
+
+  const ort = (topPlz !== "–" && plzZuOrtName[topPlz]) ? plzZuOrtName[topPlz] : "";
+  const topLabel = topPlz === "–"
+    ? "–"
+    : `${topPlz}${ort ? " " + ort : ""} (${formatKwp(topVal)})`;
+
+  countEl.textContent = count.toLocaleString("de-DE");
+  totalEl.textContent = formatKwp(total);
+  avgEl.textContent = formatKwp(avg);
+  topEl.textContent = topLabel;
+}
 
     Promise.all([Promise.all(csvAbrufVersprechungen), d3.json(geoJsonAdresse)])
       .then(([csvErgebnisse, geoDatendaten]) => {
@@ -733,11 +970,15 @@
           plzAuswahlfeld.appendChild(option);
         });
 
+        berechneQuantilGrenzen();
+        updateKwpDropdownLabels();
         karteNeuZeichnen();
         document.getElementById("plzDD").addEventListener("change", karteNeuZeichnen);
         document.getElementById("kwpDD").addEventListener("change", karteNeuZeichnen);
 
         document.getElementById("toggleCentroid").addEventListener("click", toggleCentroidLayer);
+        document.getElementById("resetBtn").addEventListener("click", resetFilters);
+
       });
   </script>
 </body>
