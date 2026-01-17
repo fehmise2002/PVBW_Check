@@ -377,15 +377,78 @@ h1{
   .map-container{ min-width: 0; }
   #map{ height: 520px; }
 }
+
+@page {
+  size: A4 landscape;
+  margin: 10mm;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .wrapper {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  h1 {
+    margin: 0 0 8mm 0 !important;
+  }
+
+  .card {
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+  }
+
+  .flex-row {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8mm !important;
+    align-items: stretch !important;
+  }
+
+  .sidebar {
+    flex: 0 0 78mm !important;
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  .map-container {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  #map {
+    height: 175mm !important; 
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb !important;
+  }
+  .info-tooltip,
+  .info-icon-container,
+  .infobox {
+    display: none !important;
+  }
+  button {
+    display: none !important;
+  }
+}
+
   </style>
 </head>
 
 <body>
   <div class="wrapper">
     <h1>Installierte PV-Leistung in<br>Baden-Württemberg</h1>
-    <div class="card">
-      <div class="flex-row">
-        <div class="sidebar">
+    <div class="card" id="exportArea">
+      <div id="pdfArea" class="flex-row">
+         <div class="sidebar">
           <label class="filterlabel" for="plzDD">PLZ-Gebiet wählen</label>
           <select class="filterbar" id="plzDD">
             <option value="">Alle PLZ-Gebiete</option>
@@ -442,24 +505,7 @@ h1{
             </div>
           </div>
           
-          <div class="btn-toggle-wrapper">
-            <button class="btn-toggle" id="toggleCentroid">
-              Leistungs-Schwerpunkt anzeigen
-            </button>
-            <div class="info-icon-container">
-              <span class="info-icon">i</span>
-              <div class="info-tooltip">
-                Bedeutung der Lage des Leistungsschwerpunkts (bezogen auf die aktuell gewählten Filter):<br><br>
-                • <strong>Mitte der Karte:</strong> PV-Leistung verteilt sich ausgewogen über Baden-Württemberg<br>
-                • <strong>Rechts (Osten):</strong> Größere Leistungskonzentration im Osten (z.B. Stuttgart-Region)<br>
-                • <strong>Links (Westen):</strong> Schwerpunkt im Westen (z.B. Freiburg/Karlsruhe)<br>
-                • <strong>Süden:</strong> Hohe Leistung in Südbaden-Württemberg<br>
-                • <strong>Norden:</strong> Konzentration im nördlichen Teil
-              </div>
-            </div>
-          </div>
-          
-          <button class="btn-download" onclick="generatePDF()">Karte als PDF herunterladen</button>
+          <button class="btn-download" onclick="printPDF()">Karte als PDF herunterladen</button>
         </div>
         <div class="map-container" style="position:relative;">
           <div id="map"></div>
@@ -470,33 +516,6 @@ h1{
   </div>
 
   <script>
-    const { jsPDF } = window.jspdf;
-
-    function generatePDF() {
-        const mapElement = document.getElementById('map');
-        const attribution = document.querySelector('.leaflet-control-container');
-        if (attribution) attribution.style.display = 'none';
-
-        setTimeout(() => {
-                          html2canvas(mapElement, {
-                useCORS: true,
-                allowTaint: false,
-                ignoreElements: (element) => element.id === 'infobox'
-              }).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF('l', 'mm', 'a4');
-                const imgProps = pdf.getImageProperties(imgData);
-                const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                pdf.save("PV-Leistung_BW_Karte.pdf");
-                
-                if (attribution) attribution.style.display = 'block';
-            });
-        }, 500); 
-    }
-
 
     function fixMojibake(str) {
         if (!str || typeof str !== "string") return str;
@@ -565,8 +584,9 @@ function quantilKlasse(value) {
         const farbSkala = d3.scaleLinear()
           .domain([0, 0.3, 0.6, 1])
           .range(["#fff7bc", "#fec44f", "#fe9929", "#cc4c02"]);
-          
-    const karte = L.map('map', { zoomControl: false, attributionControl: false }).setView([48.5, 9], 7.4);
+
+      window.karte = L.map('map', { zoomControl: false, attributionControl: false }).setView([48.5, 9], 7.4);
+        const karte = window.karte;
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         minZoom: 6,
         maxZoom: 15,
@@ -917,10 +937,14 @@ function updateStats(gefiltereElementen, werte) {
     }
   });
 
-  const ort = (topPlz !== "–" && plzZuOrtName[topPlz]) ? plzZuOrtName[topPlz] : "";
+  let ort = (topPlz !== "–" && plzZuOrtName[topPlz]) ? plzZuOrtName[topPlz] : "";
+    if (ort && ort.startsWith(topPlz)) {
+    ort = ort.slice(topPlz.length).trim();
+  }
   const topLabel = topPlz === "–"
-    ? "–"
-    : `${topPlz}${ort ? " " + ort : ""} (${formatKwp(topVal)})`;
+  ? "–"
+  : `${topPlz}${ort ? " " + ort : ""} (${formatKwp(topVal)})`;
+
 
   countEl.textContent = count.toLocaleString("de-DE");
   totalEl.textContent = formatKwp(total);
@@ -976,10 +1000,20 @@ function updateStats(gefiltereElementen, werte) {
         document.getElementById("plzDD").addEventListener("change", karteNeuZeichnen);
         document.getElementById("kwpDD").addEventListener("change", karteNeuZeichnen);
 
-        document.getElementById("toggleCentroid").addEventListener("click", toggleCentroidLayer);
-        document.getElementById("resetBtn").addEventListener("click", resetFilters);
+        const toggleBtn = document.getElementById("toggleCentroid");
+        if (toggleBtn) toggleBtn.addEventListener("click", toggleCentroidLayer);
 
+        document.getElementById("resetBtn").addEventListener("click", resetFilters);
       });
+
+      function printPDF() {
+        const infobox = document.getElementById("infobox");
+        if (infobox) infobox.style.display = "none";
+        if (window.karte && typeof window.karte.invalidateSize === "function") {
+      window.karte.invalidateSize(true);
+  }
+  setTimeout(() => window.print(), 300);
+}
   </script>
 </body>
 
